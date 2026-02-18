@@ -460,10 +460,12 @@
       pollTimer = setInterval(async () => {
         try {
           const data = await api('status');
-          currentVotes = data.votes;
-          const total = data.total;
-          document.getElementById('vote-count').textContent =
-            total + ' vote' + (total !== 1 ? 's' : '');
+          if (data.votes) {
+            currentVotes = data.votes;
+            const total = data.total || 0;
+            document.getElementById('vote-count').textContent =
+              total + ' vote' + (total !== 1 ? 's' : '');
+          }
         } catch {}
       }, 500);
     }
