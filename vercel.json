@@ -1,6 +1,7 @@
 {
+  "cleanUrls": true,
   "rewrites": [
-    { "source": "/api/:path*", "destination": "/api/game" }
-  ],
-  "cleanUrls": true
+    { "source": "/api/:path*", "destination": "/api/game" },
+    { "source": "/presenter", "destination": "/presenter.html" }
+  ]
 }
