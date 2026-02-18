@@ -102,11 +102,6 @@
       letter-spacing: 0.2em;
     }
 
-    /* Results */
-    #result-screen { background: #1a1a2e; text-align: center; padding: 2rem; }
-    #result-screen h2 { font-size: 1.4rem; font-weight: 300; opacity: 0.7; margin-bottom: 1rem; }
-    #result-text { font-size: 2rem; font-weight: 700; }
-
     /* Session ended */
     #ended-screen { text-align: center; padding: 2rem; }
     #ended-screen h1 { font-size: 2rem; font-weight: 300; opacity: 0.7; }
@@ -132,11 +127,6 @@
   <div id="voted-screen" class="screen">
     <div class="checkmark">&#10003;</div>
     <h1>Voted!</h1>
-  </div>
-
-  <div id="result-screen" class="screen">
-    <h2>Results</h2>
-    <div id="result-text"></div>
   </div>
 
   <div id="ended-screen" class="screen">
@@ -199,25 +189,27 @@
           showScreen('vote-screen');
         }
 
-        // Voting closed — show results
-        if (data.question && !data.votingOpen && currentScreen !== 'result-screen' && currentScreen !== 'waiting-screen') {
-          const total = data.total;
-          if (total === 0) {
-            document.getElementById('result-text').textContent = 'No votes received';
-          } else {
-            const greenPct = Math.round((data.votes.green / total) * 100);
-            const redPct = 100 - greenPct;
-            document.getElementById('result-text').innerHTML =
-              `<span style="color:#2ecc71">YES ${greenPct}%</span> &mdash; <span style="color:#e74c3c">NO ${redPct}%</span>`;
+        // Voting closed — audience stays on their screen
+        if (data.question && !data.votingOpen) {
+          if (hasVoted) {
+            // Stay on colored voted screen — do nothing
+          } else if (currentScreen === 'vote-screen') {
+            // Didn't vote in time — show "Time's up!"
+            document.querySelector('#voted-screen .checkmark').textContent = '\u23F0';
+            document.querySelector('#voted-screen h1').textContent = "Time's up!";
+            document.body.style.background = '#1a1a2e';
+            showScreen('voted-screen');
           }
-          document.body.style.background = '#1a1a2e';
-          showScreen('result-screen');
         }
 
         // Question was reset (between questions)
         if (!data.question && currentQuestion !== null) {
           currentQuestion = null;
+          hasVoted = false;
           document.body.style.background = '#1a1a2e';
+          // Restore voted-screen defaults for next question
+          document.querySelector('#voted-screen .checkmark').textContent = '\u2713';
+          document.querySelector('#voted-screen h1').textContent = 'Voted!';
           showScreen('waiting-screen');
         }
       } catch {}

@@ -394,11 +394,16 @@
 
     // --- Helpers ---
     async function api(action, body) {
-      const opts = body
-        ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
-        : { method: 'GET' };
-      const res = await fetch(`${API}?action=${action}`, opts);
-      return res.json();
+      try {
+        const opts = body
+          ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+          : { method: 'GET' };
+        const res = await fetch(`${API}?action=${action}`, opts);
+        return await res.json();
+      } catch (e) {
+        console.error('API error:', action, e);
+        return { ok: false };
+      }
     }
 
     function showScreen(id) {
@@ -476,6 +481,12 @@
         return;
       }
 
+      // Reset between questions so audience goes back to waiting screen
+      if (currentIndex > 0) {
+        await api('reset', {});
+        await new Promise(r => setTimeout(r, 1200));
+      }
+
       const question = questions[currentIndex];
       currentVotes = { red: 0, green: 0 };
 
@@ -510,8 +521,11 @@
           clearInterval(countdownTimer);
           stopPolling();
           // Close voting and get final results
-          const result = await api('close', {});
-          currentVotes = result.votes;
+          try {
+            const result = await api('close', {});
+            if (result.votes) currentVotes = result.votes;
+          } catch {}
+          // Always show results using last polled votes as fallback
           showResults();
         }
       }, 1000);
@@ -529,11 +543,40 @@
       document.getElementById('red-pct').textContent = redPct + '%';
 
       showScreen('results-screen');
+
+      let drawn = false;
+      function draw() {
+        if (drawn) return;
+        drawn = true;
+        drawPieChart(greenPct, redPct, total);
+      }
+
+      // Fast path: double-rAF
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          drawPieChart(greenPct, redPct, total);
+          const container = document.getElementById('pie-container');
+          if (container.clientWidth > 0) draw();
         });
       });
+
+      // ResizeObserver: detect when container gets real dimensions
+      const container = document.getElementById('pie-container');
+      if (typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver((entries) => {
+          for (const entry of entries) {
+            if (entry.contentRect.width > 0) {
+              draw();
+              ro.disconnect();
+            }
+          }
+        });
+        ro.observe(container);
+        // Clean up observer after draw
+        setTimeout(() => ro.disconnect(), 2000);
+      }
+
+      // Safety timeout fallback
+      setTimeout(draw, 500);
     }
 
     // --- Pie chart ---
