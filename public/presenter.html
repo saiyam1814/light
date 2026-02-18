@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Presenter - Red/Green Light</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0a1a;
+      color: #fff;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .screen { display: none; flex-direction: column; height: 100vh; }
+    .screen.active { display: flex; }
+
+    /* ===== SETUP SCREEN ===== */
+    #setup-screen {
+      align-items: center;
+      padding: 2rem 2rem 1rem;
+    }
+
+    #setup-screen h1 {
+      font-size: 2.2rem;
+      font-weight: 300;
+      margin-bottom: 1.5rem;
+      letter-spacing: 0.05em;
+      opacity: 0.85;
+    }
+
+    .setup-body {
+      display: flex;
+      gap: 3rem;
+      flex: 1;
+      width: 100%;
+      max-width: 1200px;
+      min-height: 0;
+    }
+
+    .setup-left {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .setup-left label {
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      opacity: 0.5;
+      margin-bottom: 0.6rem;
+    }
+
+    #questions-input {
+      flex: 1;
+      width: 100%;
+      padding: 1rem 1.2rem;
+      font-size: 1.1rem;
+      font-family: inherit;
+      line-height: 1.8;
+      border: 2px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.04);
+      color: #fff;
+      resize: none;
+      outline: none;
+      transition: border-color 0.3s;
+    }
+
+    #questions-input:focus {
+      border-color: rgba(255,255,255,0.3);
+    }
+
+    #questions-input::placeholder {
+      color: rgba(255,255,255,0.2);
+    }
+
+    .question-count {
+      font-size: 0.85rem;
+      opacity: 0.4;
+      margin-top: 0.5rem;
+      text-align: right;
+    }
+
+    .setup-right {
+      width: 300px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .setup-right label {
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      opacity: 0.5;
+    }
+
+    #qr-setup {
+      border-radius: 16px;
+      background: #fff;
+      padding: 12px;
+      display: inline-block;
+    }
+
+    #audience-url {
+      font-size: 0.95rem;
+      color: #667eea;
+      word-break: break-all;
+      text-align: center;
+      font-weight: 600;
+    }
+
+    #start-btn {
+      margin-top: auto;
+      margin-bottom: 1.5rem;
+      padding: 1rem 3.5rem;
+      font-size: 1.3rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 50px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.3s;
+      letter-spacing: 0.05em;
+      align-self: center;
+    }
+
+    #start-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 8px 30px rgba(102,126,234,0.4);
+    }
+
+    #start-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* ===== LOBBY SCREEN ===== */
+    #lobby-screen {
+      align-items: center;
+      justify-content: center;
+      gap: 2rem;
+    }
+
+    #lobby-screen h2 {
+      font-size: 2rem;
+      font-weight: 300;
+      opacity: 0.7;
+    }
+
+    #lobby-qr { border-radius: 16px; background: #fff; padding: 12px; display: inline-block; }
+
+    #lobby-url {
+      font-size: 1.4rem;
+      color: #667eea;
+      font-weight: 700;
+      word-break: break-all;
+      text-align: center;
+      max-width: 600px;
+    }
+
+    #lobby-count {
+      font-size: 1.2rem;
+      opacity: 0.5;
+    }
+
+    #begin-btn {
+      padding: 1rem 3rem;
+      font-size: 1.3rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 50px;
+      background: linear-gradient(135deg, #2ecc71, #27ae60);
+      color: #fff;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.3s;
+    }
+
+    #begin-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 8px 30px rgba(46,204,113,0.4);
+    }
+
+    /* ===== LIVE SCREEN ===== */
+    #live-screen { align-items: center; }
+
+    #progress-bar {
+      width: 100%;
+      height: 4px;
+      background: rgba(255,255,255,0.08);
+    }
+
+    #progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      transition: width 0.3s;
+    }
+
+    #live-question {
+      font-size: 3rem;
+      font-weight: 700;
+      text-align: center;
+      padding: 3rem 2rem 1rem;
+      line-height: 1.3;
+    }
+
+    #q-number {
+      font-size: 1rem;
+      opacity: 0.35;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      padding-top: 1rem;
+    }
+
+    #countdown-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+    }
+
+    #vote-count {
+      font-size: 1.5rem;
+      font-weight: 300;
+      opacity: 0.6;
+      margin-bottom: 1.5rem;
+    }
+
+    #countdown {
+      font-size: 10rem;
+      font-weight: 800;
+      line-height: 1;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    #countdown-label {
+      font-size: 1.2rem;
+      font-weight: 300;
+      opacity: 0.4;
+      margin-top: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.3em;
+    }
+
+    /* ===== RESULTS SCREEN ===== */
+    #results-screen { align-items: center; }
+
+    #result-question {
+      font-size: 2rem;
+      font-weight: 600;
+      text-align: center;
+      padding: 2rem 2rem 0;
+      opacity: 0.7;
+    }
+
+    #chart-area {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 1rem;
+    }
+
+    #pie-container {
+      position: relative;
+      width: min(50vh, 50vw);
+      height: min(50vh, 50vw);
+    }
+
+    #pie-canvas { width: 100%; height: 100%; }
+
+    #pie-center-label {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      pointer-events: none;
+    }
+
+    #total-votes { font-size: 2.5rem; font-weight: 800; }
+    #total-label { font-size: 1rem; opacity: 0.5; text-transform: uppercase; letter-spacing: 0.15em; }
+
+    #legend {
+      display: flex;
+      gap: 4rem;
+      padding: 0.5rem 2rem 1rem;
+      font-size: 1.8rem;
+      font-weight: 700;
+    }
+
+    .legend-item { display: flex; align-items: center; gap: 0.8rem; }
+    .legend-dot { width: 24px; height: 24px; border-radius: 50%; }
+
+    #next-btn, #finish-btn {
+      margin-bottom: 2rem;
+      padding: 0.8rem 2.5rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, transform 0.15s;
+    }
+
+    #next-btn {
+      border: none;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+    }
+
+    #next-btn:hover { transform: scale(1.05); }
+
+    #finish-btn {
+      border: 2px solid rgba(255,255,255,0.2);
+      background: transparent;
+      color: #fff;
+      margin-left: 1rem;
+    }
+
+    #finish-btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.4); }
+
+    .results-actions { display: flex; gap: 1rem; }
+
+    /* ===== DONE SCREEN ===== */
+    #done-screen {
+      align-items: center;
+      justify-content: center;
+      gap: 1.5rem;
+    }
+
+    #done-screen h1 {
+      font-size: 3rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #2ecc71, #667eea);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    #done-screen p { font-size: 1.3rem; opacity: 0.5; }
+
+    #restart-btn {
+      margin-top: 1rem;
+      padding: 0.8rem 2.5rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-radius: 50px;
+      background: transparent;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    #restart-btn:hover { background: rgba(255,255,255,0.1); }
+  </style>
+</head>
+<body>
+
+  <!-- 1. SETUP: Enter questions + QR code -->
+  <div id="setup-screen" class="screen active">
+    <h1>Setup Your Session</h1>
+    <div class="setup-body">
+      <div class="setup-left">
+        <label>Questions (one per line)</label>
+        <textarea id="questions-input" placeholder="Is Kubernetes hard?&#10;Do you use AI daily?&#10;Should we take a break?"></textarea>
+        <div class="question-count"><span id="q-count">0</span> questions</div>
+      </div>
+      <div class="setup-right">
+        <label>Scan to join</label>
+        <div id="qr-setup"></div>
+        <div id="audience-url">loading...</div>
+      </div>
+    </div>
+    <button id="start-btn" disabled onclick="startSession()">START SESSION</button>
+  </div>
+
+  <!-- 2. LOBBY: Show QR big before first question -->
+  <div id="lobby-screen" class="screen">
+    <h2>Scan to join</h2>
+    <div id="lobby-qr"></div>
+    <div id="lobby-url"></div>
+    <div id="lobby-count">0 connected</div>
+    <button id="begin-btn" onclick="nextQuestion()">BEGIN</button>
+  </div>
+
+  <!-- 3. LIVE: Question + countdown -->
+  <div id="live-screen" class="screen">
+    <div id="progress-bar"><div id="progress-fill" style="width:0%"></div></div>
+    <div id="q-number">Question 1 of 5</div>
+    <div id="live-question"></div>
+    <div id="countdown-area">
+      <div id="vote-count">0 votes</div>
+      <div id="countdown">5</div>
+      <div id="countdown-label">seconds</div>
+    </div>
+  </div>
+
+  <!-- 4. RESULTS: Pie chart -->
+  <div id="results-screen" class="screen">
+    <div id="result-question"></div>
+    <div id="chart-area">
+      <div id="pie-container">
+        <canvas id="pie-canvas"></canvas>
+        <div id="pie-center-label">
+          <div id="total-votes">0</div>
+          <div id="total-label">votes</div>
+        </div>
+      </div>
+    </div>
+    <div id="legend">
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#2ecc71"></div>
+        <span>YES <span id="green-pct">0%</span></span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#e74c3c"></div>
+        <span>NO <span id="red-pct">0%</span></span>
+      </div>
+    </div>
+    <div class="results-actions">
+      <button id="next-btn" onclick="nextQuestion()">NEXT QUESTION</button>
+      <button id="finish-btn" onclick="endSession()">END SESSION</button>
+    </div>
+  </div>
+
+  <!-- 5. DONE -->
+  <div id="done-screen" class="screen">
+    <h1>All Done!</h1>
+    <p>Thanks for participating</p>
+    <button id="restart-btn" onclick="location.reload()">NEW SESSION</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let questions = [];
+    let currentIndex = -1;
+    let currentVotes = { red: 0, green: 0 };
+    let countdownTimer = null;
+    let audienceUrl = '';
+    let connectedCount = 0;
+
+    // --- Screens ---
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    // --- QR Code ---
+    function generateQR(elementId, url, size) {
+      const el = document.getElementById(elementId);
+      el.innerHTML = '';
+      new QRCode(el, {
+        text: url,
+        width: size,
+        height: size,
+        colorDark: '#0a0a1a',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    }
+
+    // --- Init: Fetch audience URL and render QR ---
+    async function init() {
+      try {
+        const res = await fetch('/api/info');
+        const info = await res.json();
+        audienceUrl = info.url;
+      } catch {
+        audienceUrl = window.location.origin;
+      }
+
+      document.getElementById('audience-url').textContent = audienceUrl;
+      generateQR('qr-setup', audienceUrl, 220);
+    }
+
+    init();
+
+    // --- Question count ---
+    const textarea = document.getElementById('questions-input');
+    const startBtn = document.getElementById('start-btn');
+
+    textarea.addEventListener('input', () => {
+      const lines = textarea.value.split('\n').filter(l => l.trim());
+      document.getElementById('q-count').textContent = lines.length;
+      startBtn.disabled = lines.length === 0;
+    });
+
+    // --- Start session: parse questions, show lobby ---
+    function startSession() {
+      questions = textarea.value.split('\n').map(l => l.trim()).filter(Boolean);
+      if (questions.length === 0) return;
+      currentIndex = -1;
+
+      // Show lobby with big QR
+      document.getElementById('lobby-url').textContent = audienceUrl;
+      generateQR('lobby-qr', audienceUrl, 320);
+      showScreen('lobby-screen');
+    }
+
+    // --- Track connected users ---
+    socket.on('connected-count', (count) => {
+      connectedCount = count;
+      document.getElementById('lobby-count').textContent = count + ' connected';
+    });
+
+    // --- Next question ---
+    function nextQuestion() {
+      currentIndex++;
+
+      if (currentIndex >= questions.length) {
+        endSession();
+        return;
+      }
+
+      const question = questions[currentIndex];
+      currentVotes = { red: 0, green: 0 };
+
+      socket.emit('ask-question', question);
+
+      // Update UI
+      document.getElementById('q-number').textContent =
+        `Question ${currentIndex + 1} of ${questions.length}`;
+      document.getElementById('progress-fill').style.width =
+        ((currentIndex + 1) / questions.length * 100) + '%';
+      document.getElementById('live-question').textContent = question;
+      document.getElementById('vote-count').textContent = '0 votes';
+      document.getElementById('countdown').textContent = '5';
+
+      // Hide/show next button on last question
+      if (currentIndex >= questions.length - 1) {
+        document.getElementById('next-btn').textContent = 'FINISH';
+      } else {
+        document.getElementById('next-btn').textContent = 'NEXT QUESTION';
+      }
+
+      showScreen('live-screen');
+
+      // 5-second countdown
+      let seconds = 5;
+      clearInterval(countdownTimer);
+      countdownTimer = setInterval(() => {
+        seconds--;
+        document.getElementById('countdown').textContent = seconds;
+        if (seconds <= 0) {
+          clearInterval(countdownTimer);
+          socket.emit('show-results');
+          showResults();
+        }
+      }, 1000);
+    }
+
+    // --- Vote updates ---
+    socket.on('vote-update', (votes) => {
+      currentVotes = votes;
+      const total = votes.red + votes.green;
+      document.getElementById('vote-count').textContent =
+        total + ' vote' + (total !== 1 ? 's' : '');
+    });
+
+    // --- Show results ---
+    function showResults() {
+      const total = currentVotes.red + currentVotes.green;
+      const greenPct = total > 0 ? Math.round((currentVotes.green / total) * 100) : 0;
+      const redPct = total > 0 ? 100 - greenPct : 0;
+
+      document.getElementById('result-question').textContent = questions[currentIndex];
+      document.getElementById('total-votes').textContent = total;
+      document.getElementById('green-pct').textContent = greenPct + '%';
+      document.getElementById('red-pct').textContent = redPct + '%';
+
+      showScreen('results-screen');
+      // Wait for browser to complete layout before drawing
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          drawPieChart(greenPct, redPct, total);
+        });
+      });
+    }
+
+    // --- Pie chart ---
+    function drawPieChart(greenPct, redPct, total) {
+      const canvas = document.getElementById('pie-canvas');
+      const container = document.getElementById('pie-container');
+      // Use container's computed size; fall back to a fixed size if still 0
+      let size = container.clientWidth;
+      if (size <= 0) {
+        size = Math.min(window.innerHeight * 0.5, window.innerWidth * 0.5);
+      }
+
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = size * dpr;
+      canvas.height = size * dpr;
+      canvas.style.width = size + 'px';
+      canvas.style.height = size + 'px';
+
+      const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+
+      const cx = size / 2;
+      const cy = size / 2;
+      const radius = cx * 0.88;
+      const innerRadius = cx * 0.55;
+
+      ctx.clearRect(0, 0, size, size);
+
+      if (total === 0) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.arc(cx, cy, innerRadius, 0, Math.PI * 2, true);
+        ctx.fillStyle = 'rgba(255,255,255,0.08)';
+        ctx.fill();
+        return;
+      }
+
+      const greenAngle = (greenPct / 100) * Math.PI * 2;
+      const startAngle = -Math.PI / 2;
+
+      // Green slice (YES)
+      if (greenPct > 0) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, startAngle, startAngle + greenAngle);
+        ctx.arc(cx, cy, innerRadius, startAngle + greenAngle, startAngle, true);
+        ctx.closePath();
+        ctx.fillStyle = '#2ecc71';
+        ctx.fill();
+      }
+
+      // Red slice (NO)
+      if (redPct > 0) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, startAngle + greenAngle, startAngle + Math.PI * 2);
+        ctx.arc(cx, cy, innerRadius, startAngle + Math.PI * 2, startAngle + greenAngle, true);
+        ctx.closePath();
+        ctx.fillStyle = '#e74c3c';
+        ctx.fill();
+      }
+    }
+
+    // --- End session ---
+    function endSession() {
+      clearInterval(countdownTimer);
+      socket.emit('end-session');
+      showScreen('done-screen');
+    }
+  </script>
+</body>
+</html>
