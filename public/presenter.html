@@ -510,7 +510,7 @@
           clearInterval(countdownTimer);
           stopPolling();
           // Close voting and get final results
-          const result = await api('close');
+          const result = await api('close', {});
           currentVotes = result.votes;
           showResults();
         }
@@ -596,7 +596,7 @@
     async function endSession() {
       clearInterval(countdownTimer);
       stopPolling();
-      await api('end');
+      await api('end', {});
       showScreen('done-screen');
     }
   </script>
