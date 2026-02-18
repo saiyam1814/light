@@ -1,7 +1,4 @@
 {
-  "framework": null,
-  "installCommand": "",
-  "buildCommand": "",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/game" }
   ]
