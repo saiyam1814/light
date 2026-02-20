@@ -343,7 +343,7 @@
     <div id="live-question"></div>
     <div id="countdown-area">
       <div id="vote-count">0 votes</div>
-      <div id="countdown">10</div>
+      <div id="countdown">15</div>
       <div id="countdown-label">seconds</div>
     </div>
   </div>
@@ -502,7 +502,7 @@
         ((currentIndex + 1) / questions.length * 100) + '%';
       document.getElementById('live-question').textContent = question;
       document.getElementById('vote-count').textContent = '0 votes';
-      document.getElementById('countdown').textContent = '10';
+      document.getElementById('countdown').textContent = '15';
 
       if (currentIndex >= questions.length - 1) {
         document.getElementById('next-btn').textContent = 'FINISH';
@@ -513,8 +513,8 @@
       showScreen('live-screen');
       startPolling();
 
-      // 10-second countdown
-      let seconds = 10;
+      // 15-second countdown
+      let seconds = 15;
       clearInterval(countdownTimer);
       countdownTimer = setInterval(async () => {
         seconds--;
