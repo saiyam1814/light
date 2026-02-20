@@ -1,13 +1,12 @@
 const express = require("express");
 const http = require("http");
-const { Server } = require("socket.io");
 const path = require("path");
 const os = require("os");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
 
+app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
 // Return local network IP so presenter can generate QR code
@@ -31,66 +30,73 @@ app.get("/presenter", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "presenter.html"));
 });
 
-// State
+// Session state
+let sessionActive = true; // true until presenter calls 'end'
 let currentQuestion = null;
 let votes = { red: 0, green: 0 };
 let votingOpen = false;
 let voters = new Set();
 
-io.on("connection", (socket) => {
-  // Broadcast connected count
-  io.emit("connected-count", io.engine.clientsCount);
+app.all("/api/game", (req, res) => {
+  const action = req.query.action;
+  const body = req.body || {};
 
-  // Send current state to newly connected clients
-  if (currentQuestion && votingOpen) {
-    socket.emit("new-question", currentQuestion);
+  if (action === "status") {
+    return res.json({
+      sessionActive,
+      question: currentQuestion,
+      votingOpen,
+      votes: { red: votes.red, green: votes.green },
+      total: votes.red + votes.green,
+    });
   }
 
-  socket.on("disconnect", () => {
-    io.emit("connected-count", io.engine.clientsCount);
-  });
+  if (action === "vote") {
+    const { color, voterId } = body;
+    if (votingOpen && color && voterId && !voters.has(voterId)) {
+      voters.add(voterId);
+      votes[color] = (votes[color] || 0) + 1;
+    }
+    return res.json({ ok: true });
+  }
 
-  // Presenter asks a new question
-  socket.on("ask-question", (question) => {
+  if (action === "question") {
+    const { question } = body;
     currentQuestion = question;
     votes = { red: 0, green: 0 };
     voters = new Set();
     votingOpen = true;
-    io.emit("new-question", question);
-  });
+    sessionActive = true;
+    return res.json({ ok: true });
+  }
 
-  // Audience votes
-  socket.on("vote", (color) => {
-    if (!votingOpen) return;
-    if (voters.has(socket.id)) return;
-    voters.add(socket.id);
-    votes[color]++;
-    io.emit("vote-update", votes);
-  });
-
-  // Presenter closes voting and shows results
-  socket.on("show-results", () => {
+  if (action === "close") {
     votingOpen = false;
-    io.emit("results", votes);
-  });
+    return res.json({
+      ok: true,
+      votes: { red: votes.red, green: votes.green },
+      total: votes.red + votes.green,
+    });
+  }
 
-  // Presenter resets for next question
-  socket.on("reset", () => {
+  if (action === "reset") {
     currentQuestion = null;
     votes = { red: 0, green: 0 };
     voters = new Set();
     votingOpen = false;
-    io.emit("reset");
-  });
+    return res.json({ ok: true });
+  }
 
-  // Session ended
-  socket.on("end-session", () => {
+  if (action === "end") {
     currentQuestion = null;
     votes = { red: 0, green: 0 };
     voters = new Set();
     votingOpen = false;
-    io.emit("session-ended");
-  });
+    sessionActive = false;
+    return res.json({ ok: true });
+  }
+
+  return res.status(400).json({ error: "Unknown action" });
 });
 
 const PORT = process.env.PORT || 3000;
